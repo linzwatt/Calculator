@@ -1,12 +1,14 @@
 import re
 
-# 12 + ((((169/ 2.5)+17* 3.8/2)-(18.5 *(128/8) +16.5) * 69.69 + 12.911) / 2)
+
+class OpCats:
+    NUMBER, MUL_DIV, ADD_SUB, BRACKET = range(4)
 
 
 class Ops:
-    NUMBER, ADD, SUB, MUL, DIV, LEFT_BRACKET, RIGHT_BRACKET = range(7)
+    NUMBER, MUL, DIV, ADD, SUB, LEFT_BRACKET, RIGHT_BRACKET = range(7)
 
-strings = ['num', '+', '-', '*', '/', '(', ')']
+strings = ['num', '*', '/', '+', '-', '(', ')']
 opsDict = {'+': Ops.ADD, '-': Ops.SUB, '*': Ops.MUL, '/': Ops.DIV, '(':Ops.LEFT_BRACKET, ')': Ops.RIGHT_BRACKET}
 
 
@@ -14,6 +16,11 @@ class Op(object):
     def __init__(self, opType, value=None):
         self.type = opType
         self.value = value
+        self.cat = -1
+        if self.type == Ops.ADD or self.type == Ops.SUB:
+            self.cat = OpCats.ADD_SUB
+        elif self.type == Ops.MUL or self.type == Ops.DIV:
+            self.cat = OpCats.MUL_DIV
 
     def __repr__(self):
         if self.type == Ops.NUMBER:
@@ -22,16 +29,16 @@ class Op(object):
             return strings[self.type]
 
 
-def disp(c):
+def formatCalc(c):
+    s = ''
     for i in range(len(c)):
         end = ''
         if 1 <= c[i].type <= 4:
             end = ' '
-        if i < len(c) - 1:
-            if 1 <= c[i+1].type <= 4
+        elif i < len(c) - 1 and 1 <= c[i+1].type <= 4:
                 end = ' '
-        print(c[i], end=end)
-    print()
+        s += str(c[i]) + end
+    return s
 
 
 def solve(c):
@@ -40,25 +47,31 @@ def solve(c):
 
     res = None
     for i in range(numOps):
-        for n in range(len(c)):
-            if c[n].type != Ops.NUMBER:
-                break
+        smallest = 1e99
+        opIndex = -1
+        for n in range(1, len(c), 2):
+            if c[n].type < smallest and c[n].cat != c[opIndex].cat:
+                smallest = c[n].type
+                opIndex = n
 
-        if c[n].type == Ops.ADD:
-            res = c[n-1].value + c[n+1].value
-        elif c[n].type == Ops.SUB:
-            res = c[n - 1].value - c[n + 1].value
-        elif c[n].type == Ops.MUL:
-            res = c[n - 1].value * c[n + 1].value
-        elif c[n].type == Ops.DIV:
-            res = float(c[n - 1].value) / float(c[n + 1].value)
+        if c[opIndex].type == Ops.ADD:
+            res = c[opIndex-1].value + c[opIndex+1].value
+        elif c[opIndex].type == Ops.SUB:
+            res = c[opIndex - 1].value - c[opIndex + 1].value
+        elif c[opIndex].type == Ops.MUL:
+            res = c[opIndex - 1].value * c[opIndex + 1].value
+        elif c[opIndex].type == Ops.DIV:
+            res = float(c[opIndex - 1].value) / float(c[opIndex + 1].value)
 
         res = Op(Ops.NUMBER, res)
-        c[0:3] = [res]
+        c[opIndex-1:opIndex+2] = [res]
 
     return res
 
 calcString = input('solve: ')
+if calcString == '':
+    calcString = '12+(( ((169 / 2) +17*12.5/2) -(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
+
 origCalcString = calcString
 calcArray = []
 
@@ -102,18 +115,18 @@ while len(calcArray) > 1:
         a -= 1
         b += 1
 
-    disp(calcArray)
-    print('ans =', ans, '\n')
+    print('=', formatCalc(calcArray))
+    print('next:', formatCalc(calcArray[a:b]), '=', ans, '\n')#, '=', eval(formatCalc(calcArray[a:b])), '\n')
 
     calcArray[a:b] = [ans]
 
 result = calcArray[0].value
 check = eval(origCalcString)
 
-print('result =', calcArray[0])
-print('check =', check)
+print('=', calcArray[0])
+print('eval =', check)
 
 if abs(result - check) < 1e-10:
-    print('correct')
+    print('\ncorrect')
 else:
-    print('incorrect')
+    print('\nincorrect')
