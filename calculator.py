@@ -124,9 +124,9 @@ result = calcArray[0].value
 check = eval(origCalcString)
 
 print('=', calcArray[0])
-print('eval =', check)
+print('\neval =', check)
 
 if abs(result - check) < 1e-10:
-    print('\ncorrect')
+    print('correct :D')
 else:
-    print('\nincorrect')
+    print('incorrect :(')
