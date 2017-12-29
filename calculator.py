@@ -28,6 +28,24 @@ class Op(object):
         else:
             return strings[self.type]
 
+def calcStringToArray(string):
+    array = []
+    i = 0
+    while i < len(string):
+        if string[i] == ' ':
+            string = string[i + 1:]
+        elif string[i] in opsDict:
+            array.append(Op(opsDict[string[i]]))
+            string = string[i + 1:]
+        else:
+            num = re.search(r'[\d\.]+', string[i:]).group()
+            if '.' in num:
+                num = float(num)
+            else:
+                num = int(num)
+            array.append(Op(Ops.NUMBER, num))
+            string = string[i + len(str(num)):]
+    return array
 
 def formatCalc(c):
     s = ''
@@ -68,65 +86,53 @@ def solve(c):
 
     return res
 
-calcString = input('solve: ')
-if calcString == '':
-    calcString = '12+(( ((169 / 2) +17*12.5/2) -(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
+def main():
+    calcString = input('solve: ')
+    if calcString == '':
+        calcString = '12+(( ((169 / 2) +17*12.5/2) -(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
 
-origCalcString = calcString
-calcArray = []
+    origCalcString = calcString
+    calcArray = calcStringToArray(calcString)
 
-i = 0
-while i < len(calcString):
-    if calcString[i] == ' ':
-        calcString = calcString[i + 1:]
-    elif calcString[i] in opsDict:
-        calcArray.append(Op(opsDict[calcString[i]]))
-        calcString = calcString[i + 1:]
+    print()
+    while len(calcArray) > 1:
+        a = -1
+        b = -1
+        brackets = False
+
+        for i in range(len(calcArray)):
+            if calcArray[i].type == Ops.LEFT_BRACKET:
+                a = i + 1
+            elif calcArray[i].type == Ops.RIGHT_BRACKET:
+                b = i
+                brackets = True
+                break
+
+        if not brackets:
+            a = 0
+            b = len(calcArray)
+
+        ans = solve(calcArray[a:b])
+
+        if brackets:
+            a -= 1
+            b += 1
+
+        print('=', formatCalc(calcArray))
+        print('next:', formatCalc(calcArray[a:b]), '=', ans, '\n')#, '=', eval(formatCalc(calcArray[a:b])), '\n')
+
+        calcArray[a:b] = [ans]
+
+    result = calcArray[0].value
+    check = eval(origCalcString)
+
+    print('=', calcArray[0])
+    print('\neval =', check)
+
+    if abs(result - check) < 1e-10:
+        print('correct :D')
     else:
-        num = re.search(r'[\d\.]+', calcString[i:]).group()
-        if '.' in num:
-            num = float(num)
-        else:
-            num = int(num)
-        calcArray.append(Op(Ops.NUMBER, num))
-        calcString = calcString[i+len(str(num)):]
+        print('incorrect :(')
 
-print()
-while len(calcArray) > 1:
-    a = -1
-    b = -1
-    brackets = False
-
-    for i in range(len(calcArray)):
-        if calcArray[i].type == Ops.LEFT_BRACKET:
-            a = i + 1
-        elif calcArray[i].type == Ops.RIGHT_BRACKET:
-            b = i
-            brackets = True
-            break
-
-    if not brackets:
-        a = 0
-        b = len(calcArray)
-
-    ans = solve(calcArray[a:b])
-
-    if brackets:
-        a -= 1
-        b += 1
-
-    print('=', formatCalc(calcArray))
-    print('next:', formatCalc(calcArray[a:b]), '=', ans, '\n')#, '=', eval(formatCalc(calcArray[a:b])), '\n')
-
-    calcArray[a:b] = [ans]
-
-result = calcArray[0].value
-check = eval(origCalcString)
-
-print('=', calcArray[0])
-print('\neval =', check)
-
-if abs(result - check) < 1e-10:
-    print('correct :D')
-else:
-    print('incorrect :(')
+if __name__ == '__main__':
+    main()
