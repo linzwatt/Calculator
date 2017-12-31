@@ -1,199 +1,171 @@
+import queue
 import re
 
 
-class OpCats:
-    NUMBER, FUNCTION, EXP, MUL_DIV, ADD_SUB, BRACKET = range(6)
+# CLASSES
+
+class Types:
+    Number = 0
+    Operator = 1
+    LeftBracket = 2
+    RightBracket = 3
 
 
-class Ops:
-    COS, SIN, SQRT, EXP, MUL, DIV, ADD, SUB, LEFT_BRACKET, RIGHT_BRACKET, NUMBER = range(11)
+class Token(object):
+    def __init__(self, _type, precedence=0, lassoc=False, symbol=''):
+        self.type = _type
+        self.precedence = precedence
+        self.lassoc = lassoc
+        self.symbol = symbol
 
-str2op = {
-    '+': Ops.ADD,
-    '-': Ops.SUB,
-    '*': Ops.MUL,
-    '/': Ops.DIV,
-    '^': Ops.EXP,
-    '(': Ops.LEFT_BRACKET,
-    ')': Ops.RIGHT_BRACKET,
-    'cos': Ops.COS,
-    'sin': Ops.SIN,
-    'sqrt': Ops.SQRT
-}
-
-op2str = {v: k for k, v in str2op.items()}
+    def __str__(self):
+        return self.symbol
 
 
-class Op(object):
-    def __init__(self, opType, value=None):
-        self.type = opType
-        self.value = value
-        self.cat = -1
-        if self.type == Ops.ADD or self.type == Ops.SUB:
-            self.cat = OpCats.ADD_SUB
-        elif self.type == Ops.MUL or self.type == Ops.DIV:
-            self.cat = OpCats.MUL_DIV
-        elif self.type == Ops.EXP:
-            self.cat = OpCats.EXP
-        elif self.type == Ops.LEFT_BRACKET or self.type == Ops.RIGHT_BRACKET:
-            self.cat = OpCats.BRACKET
-        elif self.type > 6:
-            self.cat = OpCats.FUNCTION
+class Number(Token):
+    def __init__(self, value):
+        super().__init__(Types.Number)
+        self.value = float(value)
 
-    def __repr__(self):
-        if self.type == Ops.NUMBER:
-            return str(self.value)
-        else:
-            return op2str[self.type]
+    def __str__(self):
+        return str(self.value)
 
-def calcStringToArray(string):
-    array = []
-    i = 0
-    while i < len(string):
-        if string[i] == ' ':
-            string = string[i + 1:]
-        elif string[i] in opsDict:
-            array.append(Op(opsDict[string[i]]))
-            string = string[i + 1:]
-        else:
-            num = re.search(r'[\d\.]+', string[i:]).group()
-            if '.' in num:
-                num = float(num)
-            else:
-                num = int(num)
-            array.append(Op(Ops.NUMBER, num))
-            string = string[i + len(str(num)):]
-    return array
 
-def formatCalc(c):
+# FUNCTIONS
+
+def tokens2str(c):
     s = ''
     for i in range(len(c)):
         end = ''
-        if c[i].cat in [OpCats.ADD_SUB, OpCats.MUL_DIV]:
+        if c[i].type == Types.Operator and not c[i].symbol == '^':
             end = ' '
-        elif i < len(c) - 1 and c[i+1].cat in [OpCats.ADD_SUB, OpCats.MUL_DIV]:
-                end = ' '
+        elif i < len(c) - 1 and c[i + 1].type == Types.Operator and not c[
+                    i + 1].symbol == '^':
+            end = ' '
         s += str(c[i]) + end
     return s
 
 
-def solve(c):
+def tokenise(input_string):
+    str2tok = {
+        '+': add, '-': sub, '*': mul, '/': div, '^': idx, '(': lb, ')': rb
+    }
 
-    numOps = len(c) // 2
+    tokens = []
+    i = 0
+    while i < len(input_string):
+        numSearch = re.search(r'[\d\.]+', input_string[i:])
 
-    print(c)
+        if input_string[i] == ' ':
+            input_string = input_string[i + 1:]
+        elif input_string[i] in str2tok:
+            tokens.append(str2tok[input_string[i]])
+            input_string = input_string[i + 1:]
+        elif numSearch != None and numSearch.span()[0] == 0:
+            num = numSearch.group()
+            l = len(num)
+            tokens.append(Number(float(num)))
+            input_string = input_string[i + l:]
 
-    res = None
-    for i in range(numOps):
-        smallest = 1e99
-        opIndex = -1
-        for n in range(0, len(c)):
-            if c[n].type < smallest and c[n].cat != c[opIndex].cat:
-                smallest = c[n].type
-                opIndex = n
+    return tokens
 
-        print(opIndex)
-        if c[opIndex].type == Ops.NUMBER:
-            res = c[opIndex].value
-        if c[opIndex].type == Ops.ADD:
-            res = c[opIndex-1].value + c[opIndex+1].value
-        elif c[opIndex].type == Ops.SUB:
-            res = c[opIndex - 1].value - c[opIndex + 1].value
-        elif c[opIndex].type == Ops.MUL:
-            res = c[opIndex - 1].value * c[opIndex + 1].value
-        elif c[opIndex].type == Ops.DIV:
-            res = float(c[opIndex - 1].value) / float(c[opIndex + 1].value)
-        elif c[opIndex].type == Ops.EXP:
-            res = float(c[opIndex - 1].value) ** float(c[opIndex + 1].value)
 
-        res = Op(Ops.NUMBER, res)
-        c[opIndex-1:opIndex+2] = [res]
+def ShuntingYard(tokens):
+    # Shunting-yard Algorithm
+    operator_stack = []
+    output_queue = queue.Queue()
+    while len(tokens) > 0:
+        tok = tokens.pop(0)
+        if tok.type == Types.Number:
+            output_queue.put(tok)
+        elif tok.type == Types.Operator:
+            if len(operator_stack) > 0:
+                while (operator_stack[-1].precedence > tok.precedence) or \
+                                ((operator_stack[
+                                      -1].precedence == tok.precedence) and
+                                     operator_stack[-1].lassoc) and \
+                                (operator_stack[-1].type != Types.LeftBracket):
+                    output_queue.put(operator_stack.pop())
+                    if len(operator_stack) == 0:
+                        break
+            operator_stack.append(tok)
+        elif tok.type == Types.LeftBracket:
+            operator_stack.append(tok)
+        elif tok.type == Types.RightBracket:
+            missing_lb = (len(operator_stack) == 0)
+            if not missing_lb:
+                while operator_stack[-1].type != Types.LeftBracket:
+                    output_queue.put(operator_stack.pop())
+                    if len(operator_stack) == 0:
+                        missing_lb = True
+                        break
+                if not missing_lb:
+                    operator_stack.pop()
+            if missing_lb:
+                print('missing (')
 
-    return res
+    while len(operator_stack) > 0:
+        op = operator_stack.pop()
+        if op.type == Types.LeftBracket or op.type == Types.RightBracket:
+            print('mismatched brackets')
+        output_queue.put(op)
 
-<<<<<<< HEAD
-def main():
-    calcString = input('solve: ')
-    if calcString == '':
-        calcString = '12+(( ((169 / 2) +17*12.5/2) -(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
-=======
-calcString = ''#input('solve: ')
-if calcString == '':
-    calcString = '12+(( ((169 / 2^2) +17*12.5/2) -(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
->>>>>>> 15614b9c362de8a16f6a866e97f9999831e845c6
+    rpn = []
+    while not output_queue.empty():
+        rpn.append(output_queue.get())
+    return rpn
 
-    origCalcString = calcString
-    calcArray = calcStringToArray(calcString)
 
-<<<<<<< HEAD
-    print()
-    while len(calcArray) > 1:
-        a = -1
-        b = -1
-        brackets = False
-=======
-i = 0
-while i < len(calcString):
-    funcSearch = re.search(r'[a-z]+', calcString[i:])
-    numSearch = re.search(r'[\d\.]+', calcString[i:])
+def solveRPN(rpn):
+    stack = []
+    for token in rpn:
+        if token.type == Types.Operator:
+            op2 = stack.pop()
+            op1 = stack.pop()
+            if token.symbol == '^':
+                res = Number(op1.value ** op2.value)
+            elif token.symbol == '*':
+                res = Number(op1.value * op2.value)
+            elif token.symbol == '/':
+                res = Number(op1.value / op2.value)
+            elif token.symbol == '+':
+                res = Number(op1.value + op2.value)
+            elif token.symbol == '-':
+                res = Number(op1.value - op2.value)
+            stack.append(res)
+        elif token.type == Types.Number:
+            stack.append(token)
+    return (stack[0].value)
 
-    if calcString[i] == ' ':
-        calcString = calcString[i + 1:]
-    elif calcString[i] in str2op:
-        calcArray.append(Op(str2op[calcString[i]]))
-        calcString = calcString[i + 1:]
-    elif numSearch != None and numSearch.span()[0] == 0:
-        num = numSearch.group()
-        if '.' in num:
-            num = float(num)
-        else:
-            num = int(num)
-        calcArray.append(Op(Ops.NUMBER, num))
-        calcString = calcString[i+len(str(num)):]
-    elif funcSearch != None and funcSearch.span()[0] == 0:
-        funcName = funcSearch.group()
-        calcArray.append(Op(str2op[funcName]))
-        calcString = calcString[i + len(funcName):]
->>>>>>> 15614b9c362de8a16f6a866e97f9999831e845c6
 
-        for i in range(len(calcArray)):
-            if calcArray[i].type == Ops.LEFT_BRACKET:
-                a = i + 1
-            elif calcArray[i].type == Ops.RIGHT_BRACKET:
-                b = i
-                brackets = True
-                break
+def solveString(string):
+    return solveRPN(ShuntingYard(tokenise(string)))
 
-        if not brackets:
-            a = 0
-            b = len(calcArray)
 
-        ans = solve(calcArray[a:b])
+# VARIABLES
 
-        if brackets:
-            a -= 1
-            b += 1
+lb = Token(Types.LeftBracket, symbol='(')
+rb = Token(Types.RightBracket, symbol=')')
 
-        print('=', formatCalc(calcArray))
-        print('next:', formatCalc(calcArray[a:b]), '=', ans, '\n')#, '=', eval(formatCalc(calcArray[a:b])), '\n')
-
-        calcArray[a:b] = [ans]
-
-    result = calcArray[0].value
-    check = eval(origCalcString)
-
-<<<<<<< HEAD
-    print('=', calcArray[0])
-    print('\neval =', check)
-=======
-result = calcArray[0].value
-check = eval(origCalcString.replace('^','**'))
->>>>>>> 15614b9c362de8a16f6a866e97f9999831e845c6
-
-    if abs(result - check) < 1e-10:
-        print('correct :D')
-    else:
-        print('incorrect :(')
+idx = Token(Types.Operator, 4, False, '^')
+mul = Token(Types.Operator, 3, True, '*')
+div = Token(Types.Operator, 3, True, '/')
+add = Token(Types.Operator, 2, True, '+')
+sub = Token(Types.Operator, 2, True, '-')
 
 if __name__ == '__main__':
-    main()
+    # input string
+    string = '12+(( ((169 / 2^2) +17*12.5/2) +(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
+
+    # tokenise and get formatted string
+    tokens = tokenise(string)
+    formatted = tokens2str(tokens)
+
+    # Convert infix notation to Reverse Polish Notation (RPN)
+    #   using Dijkstra's Shunting-yard Algorithm
+    rpn = ShuntingYard(tokens)
+
+    # solve RPN
+    ans = solveRPN(rpn)
+
+    print(formatted, '=', ans)
