@@ -27,8 +27,22 @@ class Number(Token):
         super().__init__(Types.Number)
         self.value = float(value)
 
+    def getValue(self):
+        return self.value
+
     def __str__(self):
-        return str(self.value)
+        return str(self.getValue())
+
+
+class Var(Number):
+    def __init__(self, _id, value=0.0):
+        super().__init__(0)
+        self.id = _id
+        if _id not in varTable:
+            varTable[_id] = float(value)
+
+    def getValue(self):
+        return varTable[self.id]
 
 
 # FUNCTIONS
@@ -46,45 +60,48 @@ def tokens2str(c):
     return s
 
 
-def tokenise(input_string):
+def tokenise(string):
     str2tok = {
         '+': add, '-': sub, '*': mul, '/': div, '^': idx, '(': lb, ')': rb
     }
 
-    tokens = []
+    token_list = []
     i = 0
-    while i < len(input_string):
-        numSearch = re.search(r'[\d\.]+', input_string[i:])
+    while i < len(string):
+        numSearch = re.search(r'[\d\.]+', string[i:])
+        varSearch = re.search(r'[a-zA-Z]+', string[i:])
 
-        if input_string[i] == ' ':
-            input_string = input_string[i + 1:]
-        elif input_string[i] in str2tok:
-            tokens.append(str2tok[input_string[i]])
-            input_string = input_string[i + 1:]
-        elif numSearch != None and numSearch.span()[0] == 0:
+        if string[i] == ' ':
+            string = string[i + 1:]
+        elif string[i] in str2tok:
+            token_list.append(str2tok[string[i]])
+            string = string[i + 1:]
+        elif varSearch is not None and varSearch.span()[0] == 0:
+            var = varSearch.group()
+            token_list.append(Var(var))
+            string = string[i + len(var):]
+        elif numSearch is not None and numSearch.span()[0] == 0:
             num = numSearch.group()
             l = len(num)
-            tokens.append(Number(float(num)))
-            input_string = input_string[i + l:]
+            token_list.append(Number(float(num)))
+            string = string[i + l:]
 
-    return tokens
+    return token_list
 
 
-def ShuntingYard(tokens):
+def ShuntingYard(token_list):
     # Shunting-yard Algorithm
     operator_stack = []
     output_queue = queue.Queue()
-    while len(tokens) > 0:
-        tok = tokens.pop(0)
+    while len(token_list) > 0:
+        tok = token_list.pop(0)
         if tok.type == Types.Number:
             output_queue.put(tok)
         elif tok.type == Types.Operator:
             if len(operator_stack) > 0:
                 while (operator_stack[-1].precedence > tok.precedence) or \
-                                ((operator_stack[
-                                      -1].precedence == tok.precedence) and
-                                     operator_stack[-1].lassoc) and \
-                                (operator_stack[-1].type != Types.LeftBracket):
+                        ((operator_stack[-1].precedence == tok.precedence) and operator_stack[-1].lassoc) and \
+                        (operator_stack[-1].type != Types.LeftBracket):
                     output_queue.put(operator_stack.pop())
                     if len(operator_stack) == 0:
                         break
@@ -116,26 +133,27 @@ def ShuntingYard(tokens):
     return rpn
 
 
-def solveRPN(rpn):
+def solveRPN(rpn_list):
     stack = []
-    for token in rpn:
+    for token in rpn_list:
         if token.type == Types.Operator:
             op2 = stack.pop()
             op1 = stack.pop()
+            res = 0
             if token.symbol == '^':
-                res = Number(op1.value ** op2.value)
+                res = Number(op1.getValue() ** op2.getValue())
             elif token.symbol == '*':
-                res = Number(op1.value * op2.value)
+                res = Number(op1.getValue() * op2.getValue())
             elif token.symbol == '/':
-                res = Number(op1.value / op2.value)
+                res = Number(op1.getValue() / op2.getValue())
             elif token.symbol == '+':
-                res = Number(op1.value + op2.value)
+                res = Number(op1.getValue() + op2.getValue())
             elif token.symbol == '-':
-                res = Number(op1.value - op2.value)
+                res = Number(op1.getValue() - op2.getValue())
             stack.append(res)
         elif token.type == Types.Number:
             stack.append(token)
-    return (stack[0].value)
+    return stack[0].getValue()
 
 
 def solveString(string):
@@ -153,12 +171,18 @@ div = Token(Types.Operator, 3, True, '/')
 add = Token(Types.Operator, 2, True, '+')
 sub = Token(Types.Operator, 2, True, '-')
 
+varTable = {
+    'ans': 0.0,
+    'A': 169.0
+}
+
 if __name__ == '__main__':
     # input string
-    string = '12+(( ((169 / 2^2) +17*12.5/2) +(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
+    input_string = '12+(( ((169 / 2^2) +17*12.5/2) +(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
+    eval_ans = eval(input_string.replace('^', '**'))
 
     # tokenise and get formatted string
-    tokens = tokenise(string)
+    tokens = tokenise(input_string)
     formatted = tokens2str(tokens)
 
     # Convert infix notation to Reverse Polish Notation (RPN)
@@ -169,3 +193,5 @@ if __name__ == '__main__':
     ans = solveRPN(rpn)
 
     print(formatted, '=', ans)
+
+    assert ((ans - eval_ans) < float(1e-16)), "Answer does not match eval()"
