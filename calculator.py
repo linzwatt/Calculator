@@ -173,13 +173,17 @@ sub = Token(Types.Operator, 2, True, '-')
 
 varTable = {
     'ans': 0.0,
-    'A': 169.0
+    'num': 169.0,
+    'A': 2
 }
 
 if __name__ == '__main__':
     # input string
-    input_string = '12+(( ((169 / 2^2) +17*12.5/2) +(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / 2)'
-    eval_ans = eval(input_string.replace('^', '**'))
+    input_string = '12+(( ((num / 2^2) +17*12.5/2) +(18.5*(128 /8)+ 16.5)* 69.69+12.911 ) / A)'
+    eval_string = input_string
+    for k, v in varTable.items():
+        eval_string = eval_string.replace(k, str(v))
+    eval_ans = eval(eval_string.replace('^', '**'))
 
     # tokenise and get formatted string
     tokens = tokenise(input_string)
