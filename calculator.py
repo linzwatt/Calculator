@@ -193,6 +193,10 @@ if __name__ == '__main__':
     #   using Dijkstra's Shunting-yard Algorithm
     rpn = ShuntingYard(tokens)
 
+    for t in rpn:
+        print(t, end=' ')
+    print()
+
     # solve RPN
     ans = solveRPN(rpn)
 
